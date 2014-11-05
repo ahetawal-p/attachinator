@@ -1,0 +1,12 @@
+# Ignore bin 
+bin/
+*.class
+
+# Ignore settings
+.settings
+.classpath
+
+#Ignore gen
+gen/
+
+project.properties
