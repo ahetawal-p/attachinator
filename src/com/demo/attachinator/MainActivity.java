@@ -1,7 +1,6 @@
 package com.demo.attachinator;
 
 import android.accounts.AccountManager;
-import android.app.Dialog;
 import android.content.Context;
 import android.content.Intent;
 import android.net.ConnectivityManager;
@@ -14,14 +13,11 @@ import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.google.android.gms.auth.GooglePlayServicesAvailabilityException;
-import com.google.android.gms.auth.UserRecoverableAuthException;
 import com.google.android.gms.common.AccountPicker;
-import com.google.android.gms.common.GooglePlayServicesUtil;
 
 public class MainActivity extends ActionBarActivity {
 
-    private static final String SCOPE = "oauth2:https://www.googleapis.com/auth/gmail.readonly";
+
     public static final String EXTRA_ACCOUNTNAME = "extra_accountname";
 
     static final int REQUEST_CODE_PICK_ACCOUNT = 1000;
@@ -38,7 +34,7 @@ public class MainActivity extends ActionBarActivity {
 		super.onCreate(savedInstanceState);
 		
 		setContentView(R.layout.activity_main);
-		 mOut = (TextView) findViewById(R.id.message);
+		mOut = (TextView) findViewById(R.id.message);
 	}
 
     /** Called by button in the layout */
@@ -81,11 +77,17 @@ public class MainActivity extends ActionBarActivity {
             pickUserAccount();
         } else {
             if (isDeviceOnline()) {
-            	getTask(this, mEmail, SCOPE).execute();
+            	startAttachmentListActivity();
             } else {
                 Toast.makeText(this, "No network connection available", Toast.LENGTH_SHORT).show();
             }
         }
+    }
+    
+    private void startAttachmentListActivity() {
+    	Intent intent = new Intent(this, AttachmentListActivity.class);
+    	intent.putExtra(AttachmentListActivity.EMAIL_ACCOUNT, mEmail);
+    	startActivity(intent);
     }
     
     /** Checks whether the device currently has a network connection */
@@ -119,7 +121,7 @@ public class MainActivity extends ActionBarActivity {
             return;
         }
         if (resultCode == RESULT_OK) {
-            getTask(this, mEmail, SCOPE).execute();
+            startAttachmentListActivity();
             return;
         }
         if (resultCode == RESULT_CANCELED) {
@@ -129,10 +131,6 @@ public class MainActivity extends ActionBarActivity {
         show("Unknown error, click the button again");
     }
     
-	private FetchEmailTask getTask(MainActivity mainActivity, String mEmail,
-			String scope) {
-		return new FetchEmailTask(mainActivity, mEmail, scope);
-	}
 
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
@@ -154,33 +152,5 @@ public class MainActivity extends ActionBarActivity {
 	}
 	
 
-    /**
-     * This method is a hook for background threads and async tasks that need to provide the
-     * user a response UI when an exception occurs.
-     */
-    public void handleException(final Exception e) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (e instanceof GooglePlayServicesAvailabilityException) {
-                    // The Google Play services APK is old, disabled, or not present.
-                    // Show a dialog created by Google Play services that allows
-                    // the user to update the APK
-                    int statusCode = ((GooglePlayServicesAvailabilityException)e)
-                            .getConnectionStatusCode();
-                    Dialog dialog = GooglePlayServicesUtil.getErrorDialog(statusCode,
-                            MainActivity.this,
-                            REQUEST_CODE_RECOVER_FROM_PLAY_SERVICES_ERROR);
-                    dialog.show();
-                } else if (e instanceof UserRecoverableAuthException) {
-                    // Unable to authenticate, such as when the user has not yet granted
-                    // the app access to the account, but the user can fix this.
-                    // Forward the user to an activity in Google Play services.
-                    Intent intent = ((UserRecoverableAuthException)e).getIntent();
-                    startActivityForResult(intent,
-                            REQUEST_CODE_RECOVER_FROM_PLAY_SERVICES_ERROR);
-                }
-            }
-        });
-    }
+
 }

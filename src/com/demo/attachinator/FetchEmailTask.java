@@ -12,23 +12,29 @@ import com.google.android.gms.auth.GoogleAuthException;
 import com.google.android.gms.auth.GoogleAuthUtil;
 import com.google.android.gms.auth.UserRecoverableAuthException;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.api.client.googleapis.batch.BatchRequest;
+import com.google.api.client.googleapis.batch.json.JsonBatchCallback;
+import com.google.api.client.googleapis.json.GoogleJsonError;
+import com.google.api.client.http.HttpHeaders;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.gmail.Gmail;
-import com.google.api.services.gmail.model.ListThreadsResponse;
+import com.google.api.services.gmail.model.ListMessagesResponse;
+import com.google.api.services.gmail.model.Message;
+import com.google.api.services.gmail.model.MessagePart;
 
 public class FetchEmailTask extends AsyncTask<Void, Void, Void> {
 
 	private String mScope;
-	private MainActivity mActivity;
+	private AttachmentListActivity mActivity;
 	private String mEmail;
 
 	private static final String TAG = "TokenInfoTask";
 	private static final String APP_NAME = "Attachinator";
 
-	public FetchEmailTask(MainActivity activity, String email, String scope) {
+	public FetchEmailTask(AttachmentListActivity activity, String email, String scope) {
 		mActivity = activity;
 		mEmail = email;
 		mScope = scope;
@@ -92,21 +98,48 @@ public class FetchEmailTask extends AsyncTask<Void, Void, Void> {
 		Gmail service = new Gmail.Builder(httpTransport, jsonFactory,
 				credential).setApplicationName(APP_NAME).build();
 
+		BatchRequest b = service.batch();
+		// callback function. (Can also define different callbacks for each
+		// request, as required)
+		JsonBatchCallback<Message> bc = new JsonBatchCallback<Message>() {
+
+			@Override
+			public void onSuccess(Message t, HttpHeaders responseHeaders)
+					throws IOException {
+
+				List<MessagePart> parts = t.getPayload().getParts();
+				for (MessagePart part : parts) {
+					if (part.getFilename() != null
+							&& part.getFilename().length() > 0) {
+						String filename = part.getFilename();
+						String attId = part.getBody().getAttachmentId();
+						String mimeType = part.getMimeType();
+						System.out.println(mimeType + ":" + attId + ":"
+								+ filename);
+					}
+				}
+
+			}
+
+			@Override
+			public void onFailure(GoogleJsonError e, HttpHeaders responseHeaders)
+					throws IOException {
+
+			}
+		};
+
 		// Retrieve a page of Threads; max of 100 by default.
 
-		ListThreadsResponse threadsResponse = service.users().threads()
-				.list(mEmail).execute();
+		ListMessagesResponse messagesResponse = service.users().messages()
+				.list(mEmail).setQ("has:attachment").execute();
+		List<Message> emailsWithAttachment = messagesResponse.getMessages();
 
-		List<com.google.api.services.gmail.model.Thread> threads = threadsResponse
-				.getThreads();
-
-		// Print ID of each Thread.
-
-		for (com.google.api.services.gmail.model.Thread thread : threads) {
-
-			System.out.println("Thread ID: " + thread.getId());
-
+		// queuing requests on the batch requests
+		for (Message email : emailsWithAttachment) {
+			service.users().messages().get(mEmail, email.getId()).queue(b, bc);
 		}
+
+		b.execute();
 
 	}
 
